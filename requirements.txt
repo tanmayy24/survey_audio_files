@@ -1,6 +1,7 @@
 altair==4.2.2
 setuptools>=65.5.0
 wheel
+pydub
 attrs==23.1.0
 backports.zoneinfo==0.2.1
 blinker==1.6.2
