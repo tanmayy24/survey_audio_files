@@ -10,9 +10,9 @@ prompts_df = pd.read_csv('prompts.csv')  # CSV contains audiocap_id, youtube_id,
 
 # Paths to audio files from 3 models
 model_folders = {
-    "Model A": "model_a_audio",
-    "Model B": "model_b_audio",
-    "Model C": "model_c_audio"
+    "Model O": "model_original",
+    "Model QB": "model_quantized_best",
+    "Model QF": "model_quantized_fast"
 }
 
 # Randomly select 10 prompts
