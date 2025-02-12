@@ -16,7 +16,7 @@ model_folders = {
 }
 
 # Randomly select 10 prompts
-selected_prompts = prompts_df.sample(n=3, random_state=42).reset_index(drop=True)
+selected_prompts = prompts_df.sample(n=10, random_state=42).reset_index(drop=True)
 
 # Generate 30 (Prompt, Audio) pairs, 10 per model
 audio_samples = []
