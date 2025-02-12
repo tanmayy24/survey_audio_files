@@ -58,7 +58,7 @@ with survey.pages(len(audio_samples) + 1) as page:
         - 🔊 Ensure your **computer sound is on**.
         - 🚪 Take the survey in a **quiet environment**.
 
-        You will hear **one audio sample per question** and rate how well it matches the given text prompt.  
+        You will hear **one audio sample per question** and rate how well it matches the given text description.  
 
         **Rating Scale:**  
         - 🟥 **No Relation**  
@@ -93,7 +93,7 @@ with survey.pages(len(audio_samples) + 1) as page:
 
             # Rating selection
             rating = survey.selectbox(
-                "How well does the audio match the prompt?",
+                "How well does the audio match the description?",
                 options=["----", "No relation", "Barely related", "Somewhat related", "Very related", "Perfectly related"],
                 id=f"Q{page.current-1}_AudiocapID={audiocap_id}_Model={model_name}"
             )
