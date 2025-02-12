@@ -51,7 +51,7 @@ with survey.pages(len(audio_samples) + 1) as page:
 
     if page.current == 0:
         st.session_state['disable_next'] = False
-        st.title("🎵 Randomized Audio Quality Survey")
+        st.title("🎵 Generated Audio Quality Survey")
         st.markdown("### **Instructions**")
         st.markdown("""
         - 🎧 Use **headphones** for the best experience.
@@ -86,7 +86,7 @@ with survey.pages(len(audio_samples) + 1) as page:
             trimmed_audio_path = trim_audio(original_audio_path)
 
             # Display prompt
-            st.subheader(f"Prompt: {prompt}")
+            st.subheader(f"Description: {prompt}")
 
             # Display audio
             st.audio(trimmed_audio_path, format="audio/wav")
