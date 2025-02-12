@@ -7,76 +7,88 @@ import random
 # Load prompts
 prompts_df = pd.read_csv('prompts.csv')  # CSV contains audiocap_id, youtube_id, start_time, caption
 
-# Paths to audio files
-baseline_folder = "baseline_audio"
-generated_folder = "generated_audio"
+# Paths to audio files from 3 models
+model_folders = {
+    "Model A": "model_a_audio",
+    "Model B": "model_b_audio",
+    "Model C": "model_c_audio"
+}
 
-# Ensure only 10 prompts are used
-num_questions = min(10, len(prompts_df))
-selected_prompts = prompts_df.sample(n=num_questions, random_state=42).reset_index(drop=True)
+# Randomly select 10 prompts
+selected_prompts = prompts_df.sample(n=3, random_state=42).reset_index(drop=True)
+
+# Generate 30 (Prompt, Audio) pairs, 10 per model
+audio_samples = []
+for model_name, folder in model_folders.items():
+    for _, row in selected_prompts.iterrows():
+        audiocap_id = str(row["audiocap_id"])
+        prompt = row["caption"]
+        audio_samples.append({
+            "model": model_name,
+            "prompt": prompt,
+            "audiocap_id": audiocap_id,
+            "audio_path": os.path.join(folder, f"{audiocap_id}.wav")
+        })
+
+# Shuffle the 30 audio samples for random order
+random.shuffle(audio_samples)
 
 survey = StreamlitSurvey()
 
-with survey.pages(num_questions + 1) as page:
+with survey.pages(len(audio_samples) + 1) as page:
 
     if page.current == 0:
         st.session_state['disable_next'] = False
-        st.title("Audio Quality Comparison Survey 🎵")
-        st.markdown("<h5>Instructions</h5>", unsafe_allow_html=True)
+        st.title("🎵 Randomized Audio Quality Survey")
+        st.markdown("### **Instructions**")
         st.markdown("""
-        Please:
-        - 🎧 Use **headphones** for the best audio experience.
-        - 🔊 Make sure your **computer sound is on**.
+        - 🎧 Use **headphones** for the best experience.
+        - 🔊 Ensure your **computer sound is on**.
         - 🚪 Take the survey in a **quiet environment**.
 
-        You will be given a **prompt** and two audio samples. Please listen to both and select which one matches the prompt **better**, or choose "Both sound similar". 
+        You will hear **one audio sample per question** and rate how well it matches the given text prompt.  
 
-        Thank you for participating!
+        **Rating Scale:**  
+        - 🟥 **No Relation**  
+        - 🟪 **Barely Related**  
+        - 🟨 **Somewhat Related**  
+        - 🟦 **Very Related**  
+        - 🟩 **Perfectly Related**  
+
+        🚀 **Let's begin!** Click **Next** to start.
         """, unsafe_allow_html=True)
-    
+
     else:
-        # Get current prompt details
-        row = selected_prompts.iloc[page.current - 1]
-        audiocap_id = str(row["audiocap_id"])  # Convert to string for filename matching
-        prompt = row["caption"]
+        # Get current (Prompt, Audio) pair
+        sample = audio_samples[page.current - 1]
+        prompt = sample["prompt"]
+        audio_path = sample["audio_path"]
+        model_name = sample["model"]
+        audiocap_id = sample["audiocap_id"]
 
-        # Construct file paths
-        baseline_audio_path = os.path.join(baseline_folder, f"{audiocap_id}.wav")
-        generated_audio_path = os.path.join(generated_folder, f"{audiocap_id}.wav")
-
-        # Check if files exist before proceeding
-        if not os.path.exists(baseline_audio_path) or not os.path.exists(generated_audio_path):
-            st.error(f"Audio files for {audiocap_id} not found.")
+        # Ensure the audio file exists
+        if not os.path.exists(audio_path):
+            st.error(f"Audio file for {model_name} (ID: {audiocap_id}) not found.")
         else:
             # Display prompt
             st.subheader(f"Prompt: {prompt}")
 
-            # Display audio options
-            col1, col2 = st.columns(2)
+            # Display audio
+            st.audio(audio_path, format="audio/wav")
 
-            with col1:
-                st.markdown("**Audio 1 (Baseline Model)**")
-                st.audio(baseline_audio_path, format="audio/wav")
-
-            with col2:
-                st.markdown("**Audio 2 (Generated Model)**")
-                st.audio(generated_audio_path, format="audio/wav")
-
-            # User selection
-            st.markdown("### Which audio matches the prompt better?")
-            result = survey.selectbox(
-                "Choose an option:", 
-                options=["----", "Audio 1 (Baseline)", "Audio 2 (Generated)", "Both sound similar"],
-                id=f"Q{page.current-1}_AudiocapID={audiocap_id}"
+            # Rating selection
+            rating = survey.selectbox(
+                "How well does the audio match the prompt?",
+                options=["----", "No relation", "Barely related", "Somewhat related", "Very related", "Perfectly related"],
+                id=f"Q{page.current-1}_AudiocapID={audiocap_id}_Model={model_name}"
             )
 
-            if result == '----':
-                st.warning("Please select an option before proceeding.")
+            if rating == "----":
+                st.warning("Please select a rating before proceeding.")
             else:
                 st.session_state['disable_next'] = False
 
         # Last page: Save and submit results
-        if page.current == num_questions:
+        if page.current == len(audio_samples):
             st.markdown(":warning: **Final Step:** Please download your responses and submit them.")
-
             survey.download_button("Download Survey Data", file_name='audio_survey_results.json', use_container_width=True)
