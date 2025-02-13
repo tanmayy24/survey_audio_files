@@ -5,21 +5,20 @@ import os
 import random
 from pydub import AudioSegment
 
-# -----------------------------------------------------------
-# 1) DATA LOADING / PROMPT SELECTION
-# -----------------------------------------------------------
-prompts_df = pd.read_csv('prompts.csv')  # must have columns: audiocap_id, youtube_id, start_time, caption
+# Load prompts
+prompts_df = pd.read_csv('prompts.csv')  # CSV contains audiocap_id, youtube_id, start_time, caption
 
+# Paths to audio files from 3 models
 model_folders = {
     "Model O": "model_original",
     "Model QB": "model_quantized_best",
     "Model QF": "model_quantized_fast"
 }
 
-# Randomly select N prompts (change 5 -> 10 or your desired number)
+# Randomly select 10 prompts
 selected_prompts = prompts_df.sample(n=5, random_state=42).reset_index(drop=True)
 
-# Build our list of audio samples. We'll get 1 sample per prompt per model -> 3*N total.
+# Generate 30 (Prompt, Audio) pairs, 10 per model
 audio_samples = []
 for model_name, folder in model_folders.items():
     for _, row in selected_prompts.iterrows():
@@ -35,36 +34,23 @@ for model_name, folder in model_folders.items():
                 "audio_path": audio_path
             })
 
-# Shuffle them to get random order
+# Shuffle the 30 audio samples for random order
 random.shuffle(audio_samples)
 
-# -----------------------------------------------------------
-# 2) HELPER: TRIM AUDIO TO FIRST 10s
-# -----------------------------------------------------------
+# Function to trim audio to the first 10 seconds
 def trim_audio(audio_path):
     audio = AudioSegment.from_wav(audio_path)
-    trimmed_audio = audio[:10000]  # first 10 seconds (ms)
+    trimmed_audio = audio[:10000]  # Take the first 10 seconds (10,000 ms)
     temp_trimmed_path = f"{audio_path}_trimmed.wav"
     trimmed_audio.export(temp_trimmed_path, format="wav")
     return temp_trimmed_path
 
-# -----------------------------------------------------------
-# 3) INITIALIZE THE SURVEY
-# -----------------------------------------------------------
 survey = StreamlitSurvey()
 
-# We'll have (total samples) + 1 pages: Page 0 for instructions, pages 1..N for each sample,
-# then page N+1 for final submission.
-num_pages = len(audio_samples) + 1
+with survey.pages(len(audio_samples) + 1) as page:
 
-# NOTE: If 'nav=False' doesn't exist in your version, you must hide or override
-# the built-in nav in another way (e.g., CSS or advanced hooking).
-with survey.pages(num_pages, nav=False) as page:
-
-    # -------------------------------------------------------
-    # PAGE 0: INTRO/INSTRUCTIONS
-    # -------------------------------------------------------
     if page.current == 0:
+        st.session_state['disable_next'] = False
         st.title("🎵 Generated Audio Quality Survey")
         st.markdown("### **Instructions**")
         st.markdown("""
@@ -72,74 +58,64 @@ with survey.pages(num_pages, nav=False) as page:
         - 🔊 Ensure your **computer sound is on**.
         - 🚪 Take the survey in a **quiet environment**.
 
-        You will hear **N audio samples**, each with a text description. 
-        For each question, please rate **how well the audio matches the description**.
-
+        You will hear 15 audio samples, each paired with a text description. For each question, you will listen to one sample and rate how well it matches the description. Since multiple models generate audio, you may hear different versions of the same description from different models.       
+        The entire process will take approximately 3-4 minutes.  
+                             
         **Rating Scale:**  
-        - **No relation**  
-        - **Barely related**  
-        - **Somewhat related**  
-        - **Very related**  
-        - **Perfectly related**  
+        - **No Relation**  
+        - **Barely Related**  
+        - **Somewhat Related**  
+        - **Very Related**  
+        - **Perfectly Related**  
 
-        When you're ready, click **Next** below.
+        🚀 **Let's begin!** Click **Next** to start.
         """, unsafe_allow_html=True)
 
-        if st.button("Next"):
-            page.next()
-
-    # -------------------------------------------------------
-    # PAGES 1..N: PROMPT + AUDIO + RATING
-    # -------------------------------------------------------
-    elif page.current <= len(audio_samples):
-        # Which sample are we on?
-        sample_index = page.current - 1
-        sample = audio_samples[sample_index]
-
+    else:
+        # Get current (Prompt, Audio) pair
+        sample = audio_samples[page.current - 1]
         prompt = sample["prompt"]
         original_audio_path = sample["audio_path"]
         model_name = sample["model"]
         audiocap_id = sample["audiocap_id"]
 
-        # Double check the file path
+        # Ensure the audio file exists
         if not os.path.exists(original_audio_path):
-            st.error(f"Audio file not found for {model_name} (Audiocap ID: {audiocap_id}).")
+            st.error(f"Audio file for {model_name} (ID: {audiocap_id}) not found.")
         else:
-            # Trim audio to 10s
+            # Trim audio to first 10 seconds
             trimmed_audio_path = trim_audio(original_audio_path)
 
-            # Show the prompt
+            # Display prompt
             st.subheader(f"Description: {prompt}")
 
-            # Play the audio
+            # Display audio
             st.audio(trimmed_audio_path, format="audio/wav")
 
-            # Provide rating question
-            rating_key = f"Q{sample_index}_AudiocapID={audiocap_id}_Model={model_name}"
+            # Rating selection
+            rating_key = f"Q{page.current-1}_AudiocapID={audiocap_id}_Model={model_name}"
             rating = survey.selectbox(
                 "How well does the audio match the description?",
                 options=["----", "No relation", "Barely related", "Somewhat related", "Very related", "Perfectly related"],
                 id=rating_key
             )
 
-            # Provide Next button
-            if st.button("Next"):
-                # Enforce rating selection
-                if rating == "----" or rating is None:
-                    st.warning("⚠️ Please select a rating before proceeding.")
-                    st.stop()  # Stop script execution here, user remains on the same page
-                else:
-                    # Rating is valid; go to next page
-                    page.next()
+            # Ensure users cannot proceed without selecting a rating
+            # Ensure a selection is made before allowing "Next"
+            if rating == "----" or rating is None:
+                st.warning("⚠️ Please select a rating before proceeding.")
+                disable_next = True
+            else:
+                disable_next = False
 
-    # -------------------------------------------------------
-    # LAST PAGE: SUBMISSION / DOWNLOAD
-    # -------------------------------------------------------
-    else:
-        st.markdown("**Final Step:** Please download your survey data and submit it.")
-        survey.download_button(
-            label="Download Survey Data",
-            file_name="audio_survey_results.json",
-            use_container_width=True
-        )
-        st.markdown("_Thank you for participating!_")
+            # "Next" button is only enabled after a selection is made
+            if st.button("Next", disabled=disable_next):
+                page.next()
+
+
+
+        # Last page: Save and submit results
+        if page.current == len(audio_samples):
+            st.markdown(":warning: **Final Step:** Please download your responses and submit them.")
+            survey.download_button("Download Survey Data", file_name='audio_survey_results.json', use_container_width=True)
+
