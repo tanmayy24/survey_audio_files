@@ -59,7 +59,8 @@ with survey.pages(len(audio_samples) + 1) as page:
         - 🚪 Take the survey in a **quiet environment**.
 
         You will hear 15 audio samples, each paired with a text description. For each question, you will listen to one sample and rate how well it matches the description. Since multiple models generate audio, you may hear different versions of the same description from different models.       
-                     
+        The entire process will take approximately 3-4 minutes.  
+                             
         **Rating Scale:**  
         - **No Relation**  
         - **Barely Related**  
@@ -104,7 +105,12 @@ with survey.pages(len(audio_samples) + 1) as page:
                 st.session_state['disable_next'] = True
                 st.warning("Please select a rating before proceeding.")
             else:
-                st.session_state['disable_next'] = False
+                st.session_state['disable_next'] = False  # Allow Next button, but require manual click
+
+            # Add a "Next" button
+            if st.button("Next", disabled=st.session_state.get('disable_next', True)):
+                page.next()
+
 
         # Last page: Save and submit results
         if page.current == len(audio_samples):
