@@ -50,7 +50,6 @@ survey = StreamlitSurvey()
 with survey.pages(len(audio_samples) + 1) as page:
 
     if page.current == 0:
-        st.session_state['disable_next'] = False
         st.title("🎵 Generated Audio Quality Survey")
         st.markdown("### **Instructions**")
         st.markdown("""
@@ -92,30 +91,33 @@ with survey.pages(len(audio_samples) + 1) as page:
             # Display audio
             st.audio(trimmed_audio_path, format="audio/wav")
 
+            # Initialize session state for tracking selection
+            rating_key = f"rating_{page.current}"
+            if rating_key not in st.session_state:
+                st.session_state[rating_key] = None
+
             # Rating selection
-            rating_key = f"Q{page.current-1}_AudiocapID={audiocap_id}_Model={model_name}"
-            rating = survey.selectbox(
+            selected_rating = survey.selectbox(
                 "How well does the audio match the description?",
                 options=["----", "No relation", "Barely related", "Somewhat related", "Very related", "Perfectly related"],
-                id=rating_key
+                id=f"Q{page.current-1}_AudiocapID={audiocap_id}_Model={model_name}"
             )
 
-            # Ensure users cannot proceed without selecting a rating
-            # Ensure a selection is made before allowing "Next"
-            if rating == "----" or rating is None:
+            # Store selected rating in session state
+            if selected_rating != "----":
+                st.session_state[rating_key] = selected_rating
+
+            # Ensure "Next" button is enabled **only** if a selection is made
+            if st.session_state[rating_key] is None:
                 st.warning("⚠️ Please select a rating before proceeding.")
                 disable_next = True
             else:
                 disable_next = False
 
-            # "Next" button is only enabled after a selection is made
             if st.button("Next", disabled=disable_next):
                 page.next()
-
-
 
         # Last page: Save and submit results
         if page.current == len(audio_samples):
             st.markdown(":warning: **Final Step:** Please download your responses and submit them.")
             survey.download_button("Download Survey Data", file_name='audio_survey_results.json', use_container_width=True)
-
