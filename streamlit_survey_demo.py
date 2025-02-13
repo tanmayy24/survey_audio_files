@@ -35,8 +35,6 @@ for model_name, folder in model_folders.items():
             })
 
 # Shuffle the 30 audio samples for random order
-random.shuffle(audio_samples)
-
 # Function to trim audio to the first 10 seconds
 def trim_audio(audio_path):
     audio = AudioSegment.from_wav(audio_path)
