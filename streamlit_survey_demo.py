@@ -101,15 +101,17 @@ with survey.pages(len(audio_samples) + 1) as page:
             )
 
             # Ensure users cannot proceed without selecting a rating
-            if rating == "----":
-                st.session_state['disable_next'] = True
-                st.warning("Please select a rating before proceeding.")
+            # Ensure a selection is made before allowing "Next"
+            if rating == "----" or rating is None:
+                st.warning("⚠️ Please select a rating before proceeding.")
+                disable_next = True
             else:
-                st.session_state['disable_next'] = False  # Allow Next button, but require manual click
+                disable_next = False
 
-            # Add a "Next" button
-            if st.button("Next", disabled=st.session_state.get('disable_next', True)):
+            # "Next" button is only enabled after a selection is made
+            if st.button("Next", disabled=disable_next):
                 page.next()
+
 
 
         # Last page: Save and submit results
